@@ -1,0 +1,20 @@
+# Build output
+/dist/
+/bin/
+
+# Built binaries left in the working tree (anchored so generated cmd/ib-*
+# SOURCE directories are never ignored)
+/cligen
+/clikit-doctor
+/examples/ib/ib
+
+# Test / coverage artifacts
+*.out
+*.test
+coverage.txt
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
