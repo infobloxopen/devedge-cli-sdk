@@ -80,7 +80,8 @@ authenticate."
 The fastest path to a working CLI is to scaffold one with the devedge CLI:
 
 ```bash
-de cli add --domain widgets --spec ./openapi/widgets.openapi.yaml
+de cli new ib
+de cli add --input ./openapi/widgets.openapi.yaml --domain widgets
 ```
 
 `de cli add` runs `cligen` against a service's enriched OpenAPI spec and wires

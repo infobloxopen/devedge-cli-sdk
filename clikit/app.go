@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/infobloxopen/devedge-cli-sdk/clikit/auth"
 	"github.com/spf13/cobra"
@@ -62,6 +63,7 @@ type App struct {
 	output     string
 	dev        bool
 	devToken   string
+	headers    []string
 
 	// resolved during persistent pre-run
 	cfg     Config
@@ -120,6 +122,7 @@ func (a *App) BindGlobals(cmd *cobra.Command) {
 	f.StringVarP(&a.output, "output", "o", "table", "output format: table, json, or yaml")
 	f.BoolVar(&a.dev, "dev", false, "use a static dev token instead of real auth (development only)")
 	f.StringVar(&a.devToken, "dev-token", "", "token for --dev (default: a stub token)")
+	f.StringArrayVar(&a.headers, "header", nil, "extra request header as key=value, repeatable; sent on every request. Use for local dev against a service whose authorizer reads request metadata, e.g. --header account-id=t1 --header groups=admin")
 
 	prev := cmd.PersistentPreRunE
 	cmd.PersistentPreRunE = func(c *cobra.Command, args []string) error {
@@ -171,12 +174,37 @@ func (a *App) resolve(cmd *cobra.Command) error {
 		a.session = nil // unauthenticated client; real calls that need auth will fail loudly server-side
 	}
 
-	if a.session != nil {
-		a.client = NewAuthClient(a.session)
-	} else {
+	hdr, err := parseHeaderFlags(a.headers)
+	if err != nil {
+		return err
+	}
+	switch {
+	case a.session != nil:
+		a.client = NewAuthClientWithHeaders(a.session, hdr)
+	case len(hdr) > 0:
+		a.client = &http.Client{Transport: NewHeaderTransport(hdr, nil)}
+	default:
 		a.client = &http.Client{}
 	}
 	return nil
+}
+
+// parseHeaderFlags turns repeated "key=value" flag values into an http.Header.
+// A value without "=" is an error, so a typo fails loudly rather than being
+// silently dropped. Repeated keys accumulate as multiple header values.
+func parseHeaderFlags(flags []string) (http.Header, error) {
+	if len(flags) == 0 {
+		return nil, nil
+	}
+	h := http.Header{}
+	for _, f := range flags {
+		k, v, ok := strings.Cut(f, "=")
+		if !ok || strings.TrimSpace(k) == "" {
+			return nil, fmt.Errorf("invalid --header %q: want key=value", f)
+		}
+		h.Add(strings.TrimSpace(k), v)
+	}
+	return h, nil
 }
 
 // Context implements [Runtime].
