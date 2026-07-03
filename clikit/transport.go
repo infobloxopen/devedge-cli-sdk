@@ -30,6 +30,49 @@ func NewAuthClient(sess auth.Session) *http.Client {
 	return &http.Client{Transport: NewAuthTransport(sess, nil)}
 }
 
+// headerTransport adds a fixed set of headers to every request before
+// delegating to base. It is how the CLI attaches request metadata a target
+// service reads directly — for example the account-id/groups/subject metadata a
+// devedge-sdk dev authorizer reads, which a bearer token alone does not carry.
+type headerTransport struct {
+	headers http.Header
+	base    http.RoundTripper
+}
+
+// NewHeaderTransport wraps base (or http.DefaultTransport) so every request
+// carries the given headers. Existing headers with the same key are overwritten.
+// It composes under [NewAuthTransport]: the bearer token and the extra headers
+// are both attached.
+func NewHeaderTransport(headers http.Header, base http.RoundTripper) http.RoundTripper {
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return &headerTransport{headers: headers, base: base}
+}
+
+// RoundTrip implements http.RoundTripper.
+func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if len(t.headers) == 0 {
+		return t.base.RoundTrip(req)
+	}
+	clone := req.Clone(req.Context())
+	for k, vs := range t.headers {
+		clone.Header.Del(k)
+		for _, v := range vs {
+			clone.Header.Add(k, v)
+		}
+	}
+	return t.base.RoundTrip(clone)
+}
+
+// NewAuthClientWithHeaders returns an *http.Client that attaches the session
+// bearer token AND the given fixed headers on every request. Pass local-dev
+// identity metadata here (e.g. account-id/groups) so a generated CLI can drive a
+// service whose authorizer reads request metadata rather than the token.
+func NewAuthClientWithHeaders(sess auth.Session, headers http.Header) *http.Client {
+	return &http.Client{Transport: NewAuthTransport(sess, NewHeaderTransport(headers, nil))}
+}
+
 // RoundTrip implements http.RoundTripper.
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Buffer the body so a 401 retry can resend it (a request body is single
