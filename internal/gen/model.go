@@ -234,7 +234,7 @@ func buildField(name string, schema *openapi3.Schema, required bool) Field {
 		GoName:      pascal(name),
 		FlagName:    kebab(name),
 		GoType:      goType(schema),
-		Description: firstLine(schema.Description),
+		Description: oneLine(schema.Description),
 		Required:    required,
 	}
 	behaviors := fieldBehaviors(schema)
@@ -373,12 +373,13 @@ func collectionFromPattern(pattern []string, resourceType string) string {
 	return strings.ToLower(resourceType)
 }
 
-func firstLine(s string) string {
-	s = strings.TrimSpace(s)
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		s = s[:i]
-	}
-	return strings.TrimSpace(s)
+// oneLine flattens a multi-line description into a single line (collapsing all
+// runs of whitespace, including newlines, to one space) so a behavior annotation
+// appended later does not dangle after a mid-sentence line break. cligen flag help
+// is one line, and OpenAPI descriptions derived from wrapped proto comments are
+// frequently multi-line.
+func oneLine(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // pascal converts a camelCase/snake/kebab wire name to an exported Go name.
