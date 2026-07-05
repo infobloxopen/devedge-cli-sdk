@@ -146,6 +146,15 @@ $ ib widgets create --display-name "Gadget" --category standard --secret-token-s
 $ ib --dev widgets list        # static dev token, no real IdP
 ```
 
+`--dev` sends a static **Bearer** token, for a service whose authorizer verifies a
+token (a real `Authenticator`/JWKS seam). A freshly-scaffolded `devedge-sdk new
+service` uses a dev authorizer that reads identity from **request metadata**
+instead, so `--dev` alone gets `PermissionDenied`; pass the identity as headers:
+
+```console
+$ ib --header account-id=t1 --header groups=admin widgets list
+```
+
 See [`examples/ib`](examples/ib) for a complete, buildable shell with a
 committed generated module and an end-to-end test that drives a fake service
 through the runtime.

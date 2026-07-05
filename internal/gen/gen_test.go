@@ -22,6 +22,21 @@ func loadModel(t *testing.T) *Model {
 	return m
 }
 
+func TestOneLineFlattensMultilineDescription(t *testing.T) {
+	// DX run 25 / finding 113: a multi-line description was truncated at the first
+	// newline, then a behavior annotation was appended — leaving a dangling clause.
+	// oneLine must collapse the whole description to one line so the annotation reads.
+	in := "account_id scopes the resource to a tenant and is IMMUTABLE —\nthe repository filters every query by it;\na resource cannot be moved."
+	got := oneLine(in)
+	if strings.Contains(got, "\n") {
+		t.Fatalf("oneLine left a newline: %q", got)
+	}
+	want := "account_id scopes the resource to a tenant and is IMMUTABLE — the repository filters every query by it; a resource cannot be moved."
+	if got != want {
+		t.Errorf("oneLine mismatch:\n got=%q\nwant=%q", got, want)
+	}
+}
+
 func TestParseModelFieldBehavior(t *testing.T) {
 	m := loadModel(t)
 	if len(m.Resources) != 1 {
